@@ -2,6 +2,7 @@
 """
 Fetch weather data for a list of localities from Weather Union API,
 rotating through multiple API keys and saving results as CSV.
+Supports YAML config.
 """
 
 import os
@@ -9,21 +10,23 @@ import csv
 import time
 import logging
 from datetime import datetime
-from configparser import ConfigParser
 
 import pandas as pd
 import requests
+import yaml
 
 # ─── Configuration ─────────────────────────────────────────────────────────────
-config = ConfigParser()
-config.read(os.path.join(os.path.dirname(__file__), '..', 'config.ini'))
+# Look for config.yaml next to this script
+cfg_path = os.path.join(os.path.dirname(__file__), '..', 'config.yaml')
+with open(cfg_path, 'r') as f:
+    cfg = yaml.safe_load(f)
 
-LOCATIONS_CSV    = config['paths']['locations_csv']
-API_KEYS_CSV     = config['paths']['api_keys_csv']
-OUTPUT_BASE_DIR  = config['paths']['output_base_dir']
+LOCATIONS_CSV     = cfg['paths']['locations_csv']
+API_KEYS_CSV      = cfg['paths']['api_keys_csv']
+OUTPUT_BASE_DIR   = cfg['paths']['output_base_dir']
 
-BASE_URL         = config['api']['base_url']
-MAX_CALLS_PER_KEY = int(config['api'].get('max_calls_per_key', 1000))
+BASE_URL          = cfg['api']['base_url']
+MAX_CALLS_PER_KEY = cfg['api'].get('max_calls_per_key', 1000)
 
 # ─── Logging Setup ─────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -71,7 +74,6 @@ def fetch_and_save():
     for _, row in locations.iterrows():
         station_id = row['localityId']
 
-        # Try current key until quota exhausted
         while key_idx < len(api_keys):
             key = api_keys[key_idx]
             data = get_weather_data(station_id, key)
@@ -81,7 +83,6 @@ def fetch_and_save():
                 call_count = 0
                 continue
 
-            # parse weather_data fields if present
             if data and 'locality_weather_data' in data:
                 w = data['locality_weather_data']
                 record = {
@@ -102,7 +103,6 @@ def fetch_and_save():
             else:
                 logging.info("No data for station %s", station_id)
 
-            # advance key if needed
             if call_count >= MAX_CALLS_PER_KEY:
                 key_idx += 1
                 call_count = 0
@@ -112,7 +112,6 @@ def fetch_and_save():
             logging.error("All API keys exhausted; stopping early.")
             break
 
-    # write CSV
     date_dir = datetime.now().strftime("%Y%m%d")
     out_dir = os.path.join(OUTPUT_BASE_DIR, date_dir)
     os.makedirs(out_dir, exist_ok=True)
@@ -128,3 +127,4 @@ def fetch_and_save():
 
 if __name__ == "__main__":
     fetch_and_save()
+
