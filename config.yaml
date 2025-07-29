@@ -1,0 +1,8 @@
+paths:
+  locations_csv: "/home/user/weatherunion/locations.csv"
+  api_keys_csv:   "/home/user/weatherunion/api_key.csv"
+  output_base_dir: "/home/user/DATA/weatherunion"
+
+api:
+  base_url: "https://www.weatherunion.com/gw/weather/external/v0/get_locality_weather_data"
+  max_calls_per_key: 1000
